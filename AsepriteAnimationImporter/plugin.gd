@@ -55,6 +55,7 @@ func import(source_file, save_path, options, r_platform_variants, r_gen_files):
     var png_path = save_path + ".png"
     var png_path_globalized = ProjectSettings.globalize_path(png_path)
     var output = []
+
     var err = OS.execute(aseprite_path, [
         "--batch",
         "--filename-format", "{tag}{tagframe}",
@@ -64,7 +65,8 @@ func import(source_file, save_path, options, r_platform_variants, r_gen_files):
         "--sheet-type", "packed",
         "--sheet", png_path_globalized,
         source_file_globalized
-        ], true, output)
+        ],
+        true, output)
     if err != OK:
         push_error("Can't execute Aseprite CLI command.")
         return err
@@ -95,29 +97,36 @@ func import(source_file, save_path, options, r_platform_variants, r_gen_files):
     else:
         sprite_frames = SpriteFrames.new()
     
-    var new_names = []
+    var unique_names = []
     for frame_tag in json.meta.frameTags:
-        new_names.append(frame_tag.name)
+        frame_tag.name = frame_tag.name.strip_edges().strip_escapes()
+        if frame_tag.name.empty():
+            push_error("Found empty tag name")
+            return ERR_INVALID_DATA
+        var loop = frame_tag.name.left(1)
+        frame_tag.looped = loop == "_"
+        if frame_tag.looped:
+            frame_tag.name = frame_tag.name.substr(1)
+        if unique_names.has(frame_tag.name):
+            push_error("Found duplicated tag name")
+            return ERR_INVALID_DATA
+        unique_names.append(frame_tag.name)
 
     var names = sprite_frames.get_animation_names()
     for name in names:
-        if new_names.has(name):
+        if unique_names.has(name):
             sprite_frames.clear(name)
         else:
             sprite_frames.remove_animation(name)
 
     var atlas_textures = {}
 
+    var known_names = []
+
     for frame_tag in json.meta.frameTags:
         # frameTag.direction forward, reverse, ping-pong
         var name = frame_tag.name
-        var loop = name.left(1)
-        if loop == "_":
-            name = name.substr(1)
-        if not sprite_frames.has_animation(name):
-            sprite_frames.add_animation(name)
-        sprite_frames.set_animation_loop(name, loop == "_")
-        
+        sprite_frames.set_animation_loop(name, frame_tag.looped)
         var frame_indices = []
         for frame_index in range(frame_tag.from, frame_tag.to + 1):
             frame_indices.append(frame_index)
