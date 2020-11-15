@@ -124,6 +124,8 @@ func import(source_file, save_path, options, r_platform_variants, r_gen_files):
     for frame_tag in json.meta.frameTags:
         # frameTag.direction forward, reverse, ping-pong
         var name = frame_tag.name
+        if not sprite_frames.has_animation(name):
+            sprite_frames.add_animation(name)
         sprite_frames.set_animation_loop(name, frame_tag.looped)
         var frame_indices = []
         for frame_index in range(frame_tag.from, frame_tag.to + 1):
