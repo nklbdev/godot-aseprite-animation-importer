@@ -77,14 +77,6 @@ func import(source_file, save_path, options, r_platform_variants, r_gen_files):
         return json_result.error
     var json = json_result.result
 
-    var frameDuration = 0;
-    for frameTag in json.meta.frameTags:
-        for frameIndex in range(frameTag.from, frameTag.to + 1):
-            if frameDuration == 0:
-                frameDuration = json.frames[frameIndex].duration
-    if frameDuration == 0:
-        frameDuration = 100
-
     var image = Image.new()
     err = image.load(png_path)
     if err != OK:
