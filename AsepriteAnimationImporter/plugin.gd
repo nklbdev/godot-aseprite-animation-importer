@@ -8,7 +8,7 @@ func get_visible_name():
     return "Aseprite animation"
 
 func get_recognized_extensions():
-    return ["ase"]
+    return ["ase", "aseprite"]
 
 func get_save_extension():
     return "res"
