@@ -121,8 +121,6 @@ func import(source_file, save_path, options, r_platform_variants, r_gen_files):
 
     var atlas_textures = {}
 
-    var known_names = []
-
     for frame_tag in json.meta.frameTags:
         # frameTag.direction forward, reverse, ping-pong
         var name = frame_tag.name
