@@ -32,8 +32,12 @@ func get_import_options(preset):
     match preset:
         Presets.ANIMATION:
             return [{
-                        "name": "use_red_anyway",
-                        "default_value": false
+                        "name": "inner_padding",
+                        "type": TYPE_INT,
+                        "property_hint": PROPERTY_HINT_RANGE,
+                        "hint_string": "0,,1,or_greater",
+                        "default_value": 0,
+                        "usage": PROPERTY_USAGE_EDITOR
                     }]
         _:
             return []
@@ -56,6 +60,7 @@ func import(source_file, save_path, options, r_platform_variants, r_gen_files):
         "--filename-format", "{tag}{tagframe}",
         "--format", "json-array",
         "--list-tags",
+        "--inner-padding", String(options.inner_padding),
         "--sheet-type", "packed",
         "--sheet", png_path_globalized,
         source_file_globalized
@@ -139,12 +144,17 @@ func import(source_file, save_path, options, r_platform_variants, r_gen_files):
         for frame_index in frame_indices:
             var frame = json.frames[frame_index].frame
 
-            var key = "%d_%d_%d_%d" % [frame.x, frame.y, frame.w, frame.h]
+            var x = frame.x + options.inner_padding
+            var y = frame.y + options.inner_padding
+            var w = frame.w - options.inner_padding * 2
+            var h = frame.h - options.inner_padding * 2
+
+            var key = "%d_%d_%d_%d" % [x, y, w, h]
             var atlas_texture = atlas_textures.get(key)
             if atlas_texture == null:
                 atlas_texture = AtlasTexture.new()
                 atlas_texture.atlas = texture
-                atlas_texture.region = Rect2(frame.x, frame.y, frame.w, frame.h)
+                atlas_texture.region = Rect2(x, y, w, h)
                 atlas_textures[key] = atlas_texture
 
             sprite_frames.add_frame(name, atlas_texture)
