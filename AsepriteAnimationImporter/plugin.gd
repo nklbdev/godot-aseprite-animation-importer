@@ -120,8 +120,7 @@ func import(source_file, save_path, options, r_platform_variants, r_gen_files):
         if not sprite_frames.has_animation(name):
             sprite_frames.add_animation(name)
         sprite_frames.set_animation_loop(name, loop == "_")
-        var frame_duration = 100
-
+        
         var frame_indices = []
         for frame_index in range(frame_tag.from, frame_tag.to + 1):
             frame_indices.append(frame_index)
@@ -136,6 +135,7 @@ func import(source_file, save_path, options, r_platform_variants, r_gen_files):
                     for frame_index in range(frame_tag.to - 1, frame_tag.from, -1):
                         frame_indices.append(frame_index)
 
+        var frame_duration = null
         for frame_index in frame_indices:
             var frame = json.frames[frame_index].frame
 
@@ -148,7 +148,8 @@ func import(source_file, save_path, options, r_platform_variants, r_gen_files):
                 atlas_textures[key] = atlas_texture
 
             sprite_frames.add_frame(name, atlas_texture)
-            frame_duration = json.frames[frame_index].duration
+            if frame_duration == null:
+                frame_duration = json.frames[frame_index].duration
         sprite_frames.set_animation_speed(name, 1000 / frame_duration)
 
     err = ResourceSaver.save(
