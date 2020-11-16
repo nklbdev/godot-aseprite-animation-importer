@@ -6,6 +6,10 @@ animations into `SpriteFrames` resource from the [Aseprite](https://www.aseprite
 <img width="720" alt="aseprite_screenshot" src="https://user-images.githubusercontent.com/7024016/99195066-4b384c80-27a5-11eb-9247-e5a9b1f238eb.png">
 <img width="720" alt="godot_screenshot" src="https://user-images.githubusercontent.com/7024016/99195092-6e62fc00-27a5-11eb-8322-0c1535371884.png">
 
+Screencast:
+
+[![IMAGE ALT TEXT HERE](https://img.youtube.com/vi/0UvCWu-14Zg/0.jpg)](https://www.youtube.com/watch?v=0UvCWu-14Zg)
+
 ## Installation
 
 Simply download it from Godot Asset Library: https://godotengine.org/asset-library/asset/767.
