@@ -8,7 +8,7 @@ animations into `SpriteFrames` resource from the [Aseprite](https://www.aseprite
 
 ## Installation
 
-Simply download it from Godot Asset Library: https://godotengine.org/asset-library/asset/2592.
+Simply download it from Godot Asset Library: https://godotengine.org/asset-library/asset/767.
 
 Alternatively, download or clone this repository and copy the contents of the
 `addons` folder to your own project's `addons` folder.
