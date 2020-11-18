@@ -31,74 +31,135 @@ func get_preset_name(preset):
 func get_import_options(preset):
     match preset:
         Presets.ANIMATION:
-            return [{
-                        "name": "inner_padding",
-                        "type": TYPE_INT,
-                        "property_hint": PROPERTY_HINT_RANGE,
-                        "hint_string": "0,,1,or_greater",
-                        "default_value": 0,
-                        "usage": PROPERTY_USAGE_EDITOR
-                    }]
+            return [
+                {
+                    "name": "extrude",
+                    "type": TYPE_BOOL,
+                    "default_value": false,
+                    "usage": PROPERTY_USAGE_EDITOR
+                },
+                {
+                    "name": "default_direction",
+                    "type": TYPE_STRING,
+                    "property_hint": PROPERTY_HINT_ENUM,
+                    "hint_string": "Forward,Reverse,Ping-pong",
+                    "default_value": "forward",
+                    "usage": PROPERTY_USAGE_EDITOR
+                },
+                {
+                    "name": "default_loop",
+                    "type": TYPE_BOOL,
+                    "default_value": false,
+                    "usage": PROPERTY_USAGE_EDITOR
+                }
+            ]
         _:
             return []
 
-func get_option_visibility(option, options):
+var direction_map = {
+    "Forward": "forward",
+    "Reverse": "reverse",
+    "Ping-pong": "pingpong"
+}
+
+func get_option_visibility(_option, _options):
     return true
 
-
-func import(source_file, save_path, options, r_platform_variants, r_gen_files):
+func export_sprite_sheet(save_path, source_file, extrude):
     var aseprite_path = ProjectSettings.get_setting("aseprite_animation_importer/aseprite_executable_path")
     if aseprite_path == null or aseprite_path == "":
         push_error("Aseprite executable path is not specified in project settings.")
-        return ERR_FILE_BAD_PATH
-    var source_file_globalized = ProjectSettings.globalize_path(source_file)
+        return { "error": ERR_FILE_BAD_PATH }
     var png_path = save_path + ".png"
-    var png_path_globalized = ProjectSettings.globalize_path(png_path)
     var output = []
-
-    var err = OS.execute(aseprite_path, [
+    var error = OS.execute(aseprite_path, [
         "--batch",
         "--filename-format", "{tag}{tagframe}",
         "--format", "json-array",
         "--list-tags",
-        "--inner-padding", String(options.inner_padding),
+        "--ignore-empty",
+        "--trim",
+        "--inner-padding", "1" if extrude else "0",
         "--sheet-type", "packed",
-        "--sheet", png_path_globalized,
-        source_file_globalized
+        "--sheet", ProjectSettings.globalize_path(png_path),
+        ProjectSettings.globalize_path(source_file)
         ],
         true, output)
-    if err != OK:
+    if error != OK:
         push_error("Can't execute Aseprite CLI command.")
-        return err
+        return { "error": error }
     var data = ""
     for line in output:
         data += line
     var json_result = JSON.parse(data)
     if json_result.error != OK:
         push_error("Can't parse Aseprite export json data.")
-        return json_result.error
+        return { "error": json_result.error }
     var json = json_result.result
 
     var image = Image.new()
-    err = image.load(png_path)
-    if err != OK:
+    error = image.load(png_path)
+    if error != OK:
         push_error("Can't load exported png image.")
-        return err
+        return { "error": error }
+    if extrude:
+        extrude_edges_into_padding(image, json)
     var texture = ImageTexture.new()
     texture.create_from_image(image, 0)
-    err = Directory.new().remove(png_path)
-    if err != OK:
+    error = Directory.new().remove(png_path)
+    if error != OK:
         push_error("Can't remove temporary png image.")
-        return err
+        return { "error": error }
+    return { "texture": texture, "json": json, "error": OK }
 
+func extrude_edges_into_padding(image, json):
+    image.lock()
+    for frame_data in json.frames:
+        var frame = frame_data.frame
+        var x = 0
+        var y = frame.y
+        for i in range(frame.w):
+            x = frame.x + i
+            image.set_pixel(x, y, image.get_pixel(x, y + 1))
+        x = frame.x + frame.w - 1
+        for i in range(frame.h):
+            y = frame.y + i
+            image.set_pixel(x, y, image.get_pixel(x - 1, y))
+        y = frame.y + frame.h - 1
+        for i in range(frame.w):
+            x = frame.x + i
+            image.set_pixel(x, y, image.get_pixel(x, y - 1))
+        x = frame.x
+        for i in range(frame.h):
+            y = frame.y + i
+            image.set_pixel(x, y, image.get_pixel(x + 1, y))
+    image.unlock()
+
+func get_sprite_frames(source_file):
     var sprite_frames
     if ResourceLoader.exists(source_file):
         sprite_frames = ResourceLoader.load(source_file, "SpriteFrames", false)
     else:
         sprite_frames = SpriteFrames.new()
+    return sprite_frames
+
+func import(source_file, save_path, options, _r_platform_variants, _r_gen_files):
+    var export_result = export_sprite_sheet(save_path, source_file, options.extrude)
+    if export_result.error != OK:
+        return export_result.error
+    
+    if export_result.json.meta.frameTags.empty():
+        export_result.json.meta.frameTags.push_back({
+            "name": ("_" if options.default_direction else "") + "default",
+            "from": 0,
+            "to": export_result.json.frames.size() - 1,
+            "direction": direction_map[options.default_direction]
+        })
+
+    var sprite_frames = get_sprite_frames(source_file)
     
     var unique_names = []
-    for frame_tag in json.meta.frameTags:
+    for frame_tag in export_result.json.meta.frameTags:
         frame_tag.name = frame_tag.name.strip_edges().strip_escapes()
         if frame_tag.name.empty():
             push_error("Found empty tag name")
@@ -121,8 +182,7 @@ func import(source_file, save_path, options, r_platform_variants, r_gen_files):
 
     var atlas_textures = {}
 
-    for frame_tag in json.meta.frameTags:
-        # frameTag.direction forward, reverse, ping-pong
+    for frame_tag in export_result.json.meta.frameTags:
         var name = frame_tag.name
         if not sprite_frames.has_animation(name):
             sprite_frames.add_animation(name)
@@ -143,32 +203,36 @@ func import(source_file, save_path, options, r_platform_variants, r_gen_files):
 
         var frame_duration = null
         for frame_index in frame_indices:
-            var frame = json.frames[frame_index].frame
+            var frame_data = export_result.json.frames[frame_index]
+            var frame = frame_data.frame
+            var sprite_source_size = frame_data.spriteSourceSize
+            var source_size = frame_data.sourceSize
 
-            var x = frame.x + options.inner_padding
-            var y = frame.y + options.inner_padding
-            var w = frame.w - options.inner_padding * 2
-            var h = frame.h - options.inner_padding * 2
+            var x = frame.x + 1 if options.extrude else frame.x
+            var y = frame.y + 1 if options.extrude else frame.y
+            var w = frame.w - 2 if options.extrude else frame.w
+            var h = frame.h - 2 if options.extrude else frame.h
 
             var key = "%d_%d_%d_%d" % [x, y, w, h]
             var atlas_texture = atlas_textures.get(key)
             if atlas_texture == null:
                 atlas_texture = AtlasTexture.new()
-                atlas_texture.atlas = texture
+                atlas_texture.atlas = export_result.texture
                 atlas_texture.region = Rect2(x, y, w, h)
+                atlas_texture.margin = Rect2(sprite_source_size.x, sprite_source_size.y, source_size.w - w, source_size.h - h)
                 atlas_textures[key] = atlas_texture
 
             sprite_frames.add_frame(name, atlas_texture)
             if frame_duration == null:
-                frame_duration = json.frames[frame_index].duration
+                frame_duration = export_result.json.frames[frame_index].duration
         sprite_frames.set_animation_speed(name, 1000 / frame_duration)
 
-    err = ResourceSaver.save(
+    var error = ResourceSaver.save(
         save_path + "." + get_save_extension(),
         sprite_frames,
         ResourceSaver.FLAG_COMPRESS |
         ResourceSaver.FLAG_BUNDLE_RESOURCES |
         ResourceSaver.FLAG_REPLACE_SUBRESOURCE_PATHS)
-    if err != OK:
+    if error != OK:
         push_error("Can't save imported resource.")
-    return err
+    return error
