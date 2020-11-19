@@ -43,7 +43,7 @@ func get_import_options(preset):
                     "type": TYPE_STRING,
                     "property_hint": PROPERTY_HINT_ENUM,
                     "hint_string": "Forward,Reverse,Ping-pong",
-                    "default_value": "forward",
+                    "default_value": "Forward",
                     "usage": PROPERTY_USAGE_EDITOR
                 },
                 {
