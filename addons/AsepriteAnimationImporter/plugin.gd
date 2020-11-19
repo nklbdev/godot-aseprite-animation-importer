@@ -150,7 +150,7 @@ func import(source_file, save_path, options, _r_platform_variants, _r_gen_files)
     
     if export_result.json.meta.frameTags.empty():
         export_result.json.meta.frameTags.push_back({
-            "name": ("_" if options.default_direction else "") + "default",
+            "name": ("_" if options.default_loop else "") + "default",
             "from": 0,
             "to": export_result.json.frames.size() - 1,
             "direction": direction_map[options.default_direction]
